@@ -1,0 +1,27 @@
+From be3d57e2b5ad6b2c076c88232a2e6a55214ab638 Mon Sep 17 00:00:00 2001
+From: Jonathan Swinney <jswinney@amazon.com>
+Date: Mon, 21 Feb 2022 19:48:49 +0000
+Subject: [PATCH] vectorize: remove -fno-tree-vectorize
+
+Commit fd6dbc53855fbfc9a782095d0ffe11dd3a98905f disabled vectorization,
+but it helps quite a bit to have it enabled. It was originally disabled
+in commit 973859f5230e77beea7bb59dc081870689d6d191.
+---
+ configure | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/configure b/configure
+index cbbb4dd9c8..44f4063f3f 100755
+--- a/configure
++++ b/configure
+@@ -7176,7 +7176,6 @@ if enabled icc; then
+             disable aligned_stack
+     fi
+ elif enabled gcc; then
+-    check_optflags -fno-tree-vectorize
+     check_cflags -Werror=format-security
+     check_cflags -Werror=implicit-function-declaration
+     check_cflags -Werror=missing-prototypes
+-- 
+2.37.1
+
