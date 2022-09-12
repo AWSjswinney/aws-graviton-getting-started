@@ -13,7 +13,25 @@ generated for the hot code. Profilers such as Linux perf allow the inspection of
 the assembly level code. During the review of the hot code, software developers
 could reference this guide to find better ways to optimize inner loops.
 
-## Instruction selection and scheduling
+Some techniques for writing optimized assembly:
+1. Be aware of instruction level parallelism
+1. split data dependency chains
+1. Modulo Scheduling
+1. Use the widest load and store instructions possible, or use loads which match the data structure
+1. test everything and make no assumptions
+1. specialize functions for known input conditions
+1. know which code is hot and which is cold
+1. use efficient instructions
+
+## Instruction Level Parallelism
+When writing assembly for arm64 or any platform, be aware that the CPU has more
+than one pipeline of different types. The types and quantities are outlined in
+the SWOG. Using this knowledge, the programmer can arrange instructions of
+different types next to each other to take advantage of instruction level
+parallelism, ILP. For example, interleaving load instructions with vector or
+floating point instructions can keep both pipelines busy.
+
+### Instruction selection and scheduling
 
 ARM provides several Software Optimization Guides (SWOG) for each CPU:
 - [Graviton2 - Neoverse-N1 SWOG](https://developer.arm.com/documentation/swog309707/a/)
@@ -62,7 +80,38 @@ keeping it in a register.  The registers used for modulo scheduling are pre-load
 before the loop starts, and each iteration saves the data needed in the next
 iteration in those registers.
 
-## Optimizing a dot product by a constant vector
+## Use wide loads
+
+Use the widest available load instruction compatible with the algorithm. In a
+loop over and array of 4-byte integers, it is generally faster to load many at a
+time than loading once per iteration. For example, this single instruction loads
+16 4-byte values, for 64 bytes at once.
+
+```
+ld1 {v0.4s, v1.4s, v2.4s, v3.4s}, [x0], #64
+```
+
+The same is true for store operations.
+
+## Test Everything
+
+Do not make assumptions about performance; test everything.
+
+While many optimizations are all but certain to improve things, not all
+processors behave the same way and subtle or other unintuitive behaviors make it
+essential to benchmark your code after every iteration of optimization. Create a
+test harness which can execute the function you are working on independently and
+benchmark it. Ideally this would be a standalone executable which can be
+compiled and executed very quickly to allow rapid iteration without waiting on a
+large application with a lengthy build process to complete.
+
+
+## Specialization
+When input conditions are known, write a specialized version of a function that
+can allow skipping of entire branches, deeper unrolling, or skipping entire
+chunks of code.
+
+### Optimizing a dot product by a constant vector
 
 When the data is known ahead of execution time, it is possible to specialize the
 code based on the data. For example in the x265 encoder a filter is using the
@@ -118,3 +167,18 @@ For g_lumaFilter[1], the assembly code only uses 4 multiplies, 1 shift left, and
     add             v17.8h, v17.8h, v21.8h // d*58 - c*10 + e*17 + b*4 + g - a - f*5
 ```
 
+## Know Which Code is Hot
+
+An assembly implementation is only worth the effort for the most performance
+critical of functions. However, even within such a function, there may be
+necessary code which only executes a fraction of the number of times of an
+inner loop. Pay attention to which parts of the code are in loops and which code
+is supporting code, such as entry and exit code. Spend the most time optimizing
+the loops and the least time optimizing "colder" code.
+
+## Use efficient instructions
+
+- When multiplying or dividing by powers of two, use shifts instead of multiply
+and divide instructions.
+- Use saturating shifts
+- Use zip, uzip, instructions
