@@ -111,6 +111,30 @@ When input conditions are known, write a specialized version of a function that
 can allow skipping of entire branches, deeper unrolling, or skipping entire
 chunks of code.
 
+### Unrolling an inner loop
+Suppose the following C code needs to be optimized:
+
+```C
+int foo(uint16_t *a, int a_size, uint16_t *b, int b_size, int16_t *dst)
+{
+    for (int i = 0; i < a_size; i++) {
+        uint16_t v = 0;
+        for (int j = 0; j < b_size; j++) {
+            v += a[i] * b[j];
+        }
+        dst[i] = v;
+    }
+}
+```
+
+Suppose that you also know that 75% of the time this function is called,
+`b_size == 16` and the other 25% it can be any other value. Armed with this
+knowledge, it is possible to write a specialization of this function which tests
+the `b_size` at the beginning and jumps to a special implementation which can
+completely unroll the inner loop, eliminating a branch and allowing the use of a
+single instruction which can load all of the values in `b` for each iteration of
+`i`.
+
 ### Optimizing a dot product by a constant vector
 
 When the data is known ahead of execution time, it is possible to specialize the
