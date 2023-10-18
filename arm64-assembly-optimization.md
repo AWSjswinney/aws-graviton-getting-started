@@ -15,39 +15,87 @@ could reference this guide to find better ways to optimize inner loops.
 
 Some techniques for writing optimized assembly:
 1. Be aware of instruction level parallelism
-1. split data dependency chains
+1. Split data dependency chains
 1. Modulo Scheduling
 1. Use the widest load and store instructions possible, or use loads which match the data structure
-1. test everything and make no assumptions
-1. specialize functions for known input conditions
-1. know which code is hot and which is cold
-1. use efficient instructions
+1. Test everything and make no assumptions
+1. Specialize functions for known input conditions
+1. Know which code is hot and which is cold
+1. Use efficient instructions
 
 ## Instruction Level Parallelism
+When writing in C, or any higher level language, the programmer writes a sequence
+of statements which are presumed to execute in strict sequence. In the following
+example, each statement logically occurs after the previous one.
+
+```c
+int foo (int a, int b, int c)
+{
+    if (c < 0) {
+        int d = a + b;
+        return d;
+    } else {
+        int e = a * b;
+        return e;
+    }
+}
+```
+
+However when we compile this code with gcc version 7.3 with `-O1`, this is the output:
+```
+foo(int, int, int):
+    add     w3, w0, w1
+    mul     w0, w0, w1
+    cmp     w2, 0
+    csel    w0, w0, w3, ge
+    ret
+```
+
+Here we can see the add and the multiply instruction are executed independently
+if the result of `c < 0`. The compiler knows that the CPU can execute these
+instructions in parallel. If we use the machine code analyzer from the LLVM
+project, we can can see what is happening. We will use Graviton2 as our target
+platform, which uses the Neoverse-N1 core.
+
+`llvm-mca -mcpu=neoverse-n1 -timeline -iterations 1 foo.s`
+```
+...
+Timeline view:
+Index     012345
+
+[0,0]     DeER .   add  w3, w0, w1
+[0,1]     DeeER.   mul  w0, w0, w1
+[0,2]     DeE-R.   cmp  w2, #0
+[0,3]     D==eER   csel w0, w0, w3, ge
+[0,4]     DeE--R   ret
+...
+```
+
+In this output we can see that all five instructions from this function are decoded
+in parallel in the first cycle. Then in the second cycle the instructions for which
+all dependencies are already resolved begin executing. There is only one instruction
+which has dependencies: the conditional select, `csel`. The four remaining
+instructions all begin executing, including the `ret` instruction at the end. In
+effect, nearly the entire C function is executing in parallel. The
+`csel` has to wait for the result of the comparison instruction to check
+`c < 0` and the result of the multiplication. Even the return has
+completed by this point and the CPU front end has already decoded
+instructions in the return path and some of them will already be
+executing as well.
+
+It is important to understand this when writing assembly. Instructions
+do not execute in the order they appear. Their effects will be logically
+sequential, but execution order will not be.
+
 When writing assembly for arm64 or any platform, be aware that the CPU has more
 than one pipeline of different types. The types and quantities are outlined in
-the SWOG. Using this knowledge, the programmer can arrange instructions of
+the Software Optimization Guide, often abbreviated as SWOG. The guide
+for each Graviton processor is linked from the [main page of this
+technical guide](README.md). Using this knowledge, the programmer can arrange instructions of
 different types next to each other to take advantage of instruction level
 parallelism, ILP. For example, interleaving load instructions with vector or
 floating point instructions can keep both pipelines busy.
 
-### Instruction selection and scheduling
-
-ARM provides several Software Optimization Guides (SWOG) for each CPU:
-- [Graviton2 - Neoverse-N1 SWOG](https://developer.arm.com/documentation/swog309707/a/)
-- [Graviton3 - Neoverse-V1 SWOG](https://developer.arm.com/documentation/PJDOC-466751330-9685/0101/)
-
-The SWOG documents for each instruction the latency (number of cycles it takes
-to finish the execution of an instruction) and the throughput (the number of
-similar instructions that can execute in parallel.) The SWOG also documents the
-execution units that can execute an instruction. The information provided by the
-SWOG is sometimes encoded in compilers (GCC and LLVM) under the form of specific
-tuning flags for different CPUs. Tuning flags allow compilers to produce a good
-instruction scheduling and a good instruction selection.
-
-LLVM has a tool [llvm-mca](https://www.llvm.org/docs/CommandGuide/llvm-mca.html)
-that allows software developers to see on their input assembly code how the
-compiler reasons about the execution of instructions by a specific processor.
 
 ## Splitting data dependence chains
 
@@ -72,6 +120,25 @@ ld1  {v1.16b}, [x1, #1]     // x1 + 1
 // v0 and v1 are available after the two independent ld1 instructions finish execution
 // Both Graviton2 and Graviton3 will execute the two loads in parallel.
 ```
+
+### Instruction selection and scheduling
+
+ARM provides several Software Optimization Guides (SWOG) for each CPU:
+- [Graviton2 - Neoverse-N1 SWOG](https://developer.arm.com/documentation/swog309707/a/)
+- [Graviton3 - Neoverse-V1 SWOG](https://developer.arm.com/documentation/PJDOC-466751330-9685/0101/)
+
+The SWOG documents for each instruction the latency (number of cycles it takes
+to finish the execution of an instruction) and the throughput (the number of
+similar instructions that can execute in parallel.) The SWOG also documents the
+execution units that can execute an instruction. The information provided by the
+SWOG is sometimes encoded in compilers (GCC and LLVM) under the form of specific
+tuning flags for different CPUs. Tuning flags allow compilers to produce a good
+instruction scheduling and a good instruction selection.
+
+LLVM has a tool [llvm-mca](https://www.llvm.org/docs/CommandGuide/llvm-mca.html)
+that allows software developers to see on their input assembly code how the
+compiler reasons about the execution of instructions by a specific processor.
+
 
 ## Modulo scheduling
 
