@@ -86,7 +86,7 @@ DEFAULT_VERSIONS = {
     "opus": "v1.5.2",
 }
 
-VALID_PLATFORMS = {"graviton2", "graviton3", "graviton4", "avx2", "avx512"}
+VALID_PLATFORMS = {"graviton2", "graviton3", "graviton4", "graviton5", "avx2", "avx512"}
 
 
 def _default_platform():

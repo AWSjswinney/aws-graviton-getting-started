@@ -45,6 +45,9 @@ case "$TARGET_PLATFORM" in
     graviton4)
         CFLAGS="-march=armv9-a+crypto+fp16+rcpc+dotprod+sve2 -mtune=neoverse-v2"
         ;;
+    graviton5)
+        CFLAGS="-march=armv9.2-a+crypto+fp16+rcpc+dotprod+sve2 -mtune=neoverse-v3"
+        ;;
     avx2)
         CFLAGS="-march=haswell -mtune=haswell"
         ;;
