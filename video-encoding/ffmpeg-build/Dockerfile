@@ -17,6 +17,7 @@ ARG TARGET_PLATFORM
 ENV COMPILER=${COMPILER}
 ENV TARGET_PLATFORM=${TARGET_PLATFORM}
 COPY scripts /build/scripts
+COPY patches /build/patches
 RUN /build/scripts/install-dependencies.sh
 RUN /build/scripts/setup-compiler.sh
 SHELL ["/bin/bash", "-lc"]
