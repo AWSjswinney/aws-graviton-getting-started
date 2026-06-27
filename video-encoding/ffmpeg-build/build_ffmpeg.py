@@ -26,7 +26,7 @@ OUTPUT_DIR = SCRIPT_DIR / "output"
 DEFAULT_REPOS = {
     "ffmpeg": "https://git.ffmpeg.org/ffmpeg.git",
     "x264": "https://code.videolan.org/videolan/x264.git",
-    "x265": "https://bitbucket.org/multicoreware/x265_git",
+    "x265": "https://github.com/Multicorewareinc/x265.git",
     "aom": "https://aomedia.googlesource.com/aom",
     "SVT-AV1": "https://gitlab.com/AOMediaCodec/SVT-AV1.git",
     "opus": "https://github.com/xiph/opus.git",
